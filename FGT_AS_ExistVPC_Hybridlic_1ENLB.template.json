@@ -1,0 +1,997 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "(v1.1) AWS CloudFormation Template to deploy a hybrid license based FortiGate AutoScaling solution",
+	"Metadata": {
+		"AWS::CloudFormation::Interface": {
+			"ParameterGroups": [{
+					"Label": {
+						"default": "VPC Configuration"
+					},
+					"Parameters": [
+						"VPCID",
+						"VPCCIDR",
+						"PublicSubnet1",
+						"PrivateSubnet1",
+						"PublicSubnet2",
+						"PrivateSubnet2"
+					]
+				},
+				{
+					"Label": {
+						"default": "FortiGate Instance Configuration"
+					},
+					"Parameters": [
+						"CIDRForInstanceAccess",
+						"KeyPair",
+						"Password",
+						"InitS3Bucket",
+						"ListenerPort",
+						"APIGatewayURL",
+						"EnvironmentTag"
+					]
+				},
+				{
+					"Label": {
+						"default": "Auto Scaling Configuration"
+					},
+					"Parameters": [
+						"ScaleUpThreshold",
+						"ScaleDownThreshold",
+						"BYOLInstanceType",
+						"ASGBYOLMinSize",
+						"ASGBYOLMaxSize",
+						"PAYGInstanceType",
+						"ASGPAYGMinSize",
+						"ASGPAYGMaxSize"
+					]
+				}
+			]
+		}
+	},
+	"Parameters": {
+		"VPCID": {
+			"Type": "AWS::EC2::VPC::Id",
+			"Description": "Select the VPC to use"
+		},
+		"VPCCIDR": {
+			"Type": "String",
+			"Default": "10.0.0.0/16",
+			"Description": "Provide the network CIDR for the VPC"
+		},
+		"PublicSubnet1": {
+			"Type": "AWS::EC2::Subnet::Id",
+			"Description": "Select the subnet to use for PublicSubnet1"
+		},
+		"PrivateSubnet1": {
+			"Type": "AWS::EC2::Subnet::Id",
+			"Description": "Select the subnet to use for PrivateSubnet1"
+		},
+		"PublicSubnet2": {
+			"Type": "AWS::EC2::Subnet::Id",
+			"Description": "Select the subnet to use for PublicSubnet2"
+		},
+		"PrivateSubnet2": {
+			"Type": "AWS::EC2::Subnet::Id",
+			"Description": "Select the subnet to use for PrivateSubnet2"
+		},
+		"BYOLInstanceType": {
+			"Type": "String",
+			"Default": "c5.large",
+			"Description": "Select the instance type for the BYOL FortiGates",
+			"AllowedValues": [
+				"t2.small",
+				"c5.large",
+				"c5.xlarge",
+				"c5.2xlarge",
+				"c5.4xlarge",
+				"c5.9xlarge",
+				"c5.18xlarge",
+				"c5n.large",
+				"c5n.xlarge",
+				"c5n.2xlarge",
+				"c5n.4xlarge",
+				"c5n.9xlarge",
+				"c5n.18xlarge"
+			]
+		},
+		"PAYGInstanceType": {
+			"Type": "String",
+			"Default": "c5.large",
+			"Description": "Select the instance type for the PAYG FortiGates",
+			"AllowedValues": [
+				"t2.small",
+				"c5.large",
+				"c5.xlarge",
+				"c5.2xlarge",
+				"c5.4xlarge",
+				"c5.9xlarge",
+				"c5.18xlarge",
+				"c5n.large",
+				"c5n.xlarge",
+				"c5n.2xlarge",
+				"c5n.4xlarge",
+				"c5n.9xlarge",
+				"c5n.18xlarge"
+			]
+		},
+		"CIDRForInstanceAccess": {
+			"Type": "String",
+			"Default": "0.0.0.0/0",
+			"Description": "Provide a network CIDR from which the FortiGate instances will be accessed"
+		},
+		"KeyPair": {
+			"Type": "AWS::EC2::KeyPair::KeyName",
+			"Description": "Select a keypair to associate with the FortiGates"
+		},
+		"Password": {
+			"Type": "String",
+			"NoEcho": "true",
+			"Description": "Provide a password for the admin account of the FortiGates"
+		},
+		"InitS3Bucket": {
+			"Type": "String",
+			"MinLength": "1",
+			"Description": "Provide the Init S3 Bucket name where your license files exists"
+		},
+		"ListenerPort": {
+			"Type": "Number",
+			"Default": "80",
+			"Description": "Provide the listener port for the external ELB"
+		},
+		"APIGatewayURL": {
+			"Type": "String",
+			"Default": "https://{restapi_id}.execute-api.{region}.amazonaws.com/{stage_name}/",
+			"Description": "Provide an API Gateway URL to receive notifications for AutoScaling events"
+		},
+		"EnvironmentTag": {
+			"Type": "String",
+			"Default": "prod",
+			"Description": "Select an environment tag",
+			"AllowedValues": [
+				"prod",
+				"dev",
+				"test"
+			]
+		},
+		"ScaleUpThreshold": {
+			"Type": "Number",
+			"Default": "70",
+			"Description": "Provide the value at which a scale up event would take place (CPU Usage)"
+		},
+		"ScaleDownThreshold": {
+			"Type": "Number",
+			"Default": "20",
+			"Description": "Provide the value at which a scale down event would take place (CPU Usage)"
+		},
+		"ASGBYOLMinSize": {
+			"Type": "Number",
+			"Default": "2",
+			"Description": "Minimum number of FortiGate instances in the BYOL Auto-Scaling Group."
+		},
+		"ASGBYOLMaxSize": {
+			"Type": "Number",
+			"Default": "2",
+			"Description": "Maximum number of FortiGate instances in the BYOL Auto-Scaling Group."
+		},
+		"ASGPAYGMinSize": {
+			"Type": "Number",
+			"Default": "0",
+			"Description": "Maximum number of FortiGate instances in the PAYG Auto-Scaling Group."
+		},
+		"ASGPAYGMaxSize": {
+			"Type": "Number",
+			"Default": "5",
+			"Description": "Maximum number of FortiGate instances in the PAYG Auto-Scaling Group."
+		}
+	},
+	"Mappings": {
+		"RegionMap": {
+			"ap-northeast-1": {
+				"fgtamib": "ami-021c40c8d7d07a99a",
+				"fgtamip": "ami-0b7ea934fc0a83064"
+			},
+			"ap-northeast-2": {
+				"fgtamib": "ami-09c6e2b31c5aeeef5",
+				"fgtamip": "ami-0c9c34c5ac1adc829"
+			},
+			"ap-south-1": {
+				"fgtamib": "ami-066e2d633f25457cf",
+				"fgtamip": "ami-08509cefe5c6372a8"
+			},
+			"ap-southeast-1": {
+				"fgtamib": "ami-0b09627a8727a840e",
+				"fgtamip": "ami-01b05e38c6388f84f"
+			},
+			"ap-southeast-2": {
+				"fgtamib": "ami-03812d85cf5ab60b6",
+				"fgtamip": "ami-029bca18bc8f272cd"
+			},
+			"ca-central-1": {
+				"fgtamib": "ami-0e2dfde704479020d",
+				"fgtamip": "ami-0b1d312dc1c41030e"
+			},
+			"eu-central-1": {
+				"fgtamib": "ami-084fbc093774e3d55",
+				"fgtamip": "ami-0a4498f9a72cf2537"
+			},
+			"eu-west-1": {
+				"fgtamib": "ami-01e8b02ab1ac6f0be",
+				"fgtamip": "ami-0c1f71f51fb106a31"
+			},
+			"eu-west-2": {
+				"fgtamib": "ami-0fee8ad3dbfdc59f7",
+				"fgtamip": "ami-0d333d8821f37aa36"
+			},
+			"eu-west-3": {
+				"fgtamib": "ami-01f28c942780fe93d",
+				"fgtamip": "ami-0a97f4194a0515b21"
+			},
+			"sa-east-1": {
+				"fgtamib": "ami-0e2e26cbaae02e210",
+				"fgtamip": "ami-0851b028d263ced22"
+			},
+			"us-east-1": {
+				"fgtamib": "ami-0545ab5cfcb04ae1f",
+				"fgtamip": "ami-0532fcbf3ada1987a"
+			},
+			"us-east-2": {
+				"fgtamib": "ami-06c0b5327ae077f9b",
+				"fgtamip": "ami-07c2582e55a222dd3"
+			},
+			"us-west-1": {
+				"fgtamib": "ami-0a2dd80d792806156",
+				"fgtamip": "ami-0aa77e91cb3eab854"
+			},
+			"us-west-2": {
+				"fgtamib": "ami-0e02bbdf523a30000",
+                "fgtamip": "ami-00a5f7f2848b21194"
+            }  
+            "cn-northwest-1:": {
+                "fgtamib": "ami-01e24cde88b2a7976"
+            }
+            "cn-north-1": {
+                "fgtamib": "ami-05770fc6211ef785a"
+            }
+		}
+	},
+	"Conditions": {},
+	"Resources": {
+		"InstanceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"Service": ["ec2.amazonaws.com"]
+						},
+						"Action": ["sts:AssumeRole"]
+					}]
+				},
+				"Path": "/",
+				"Policies": [{
+					"PolicyName": "ApplicationPolicy",
+					"PolicyDocument": {
+						"Version": "2012-10-17",
+						"Statement": [{
+							"Effect": "Allow",
+							"Action": [
+								"s3:GetObject"
+							],
+							"Resource": "*"
+						}]
+					}
+				}]
+			}
+		},
+		"InstanceProfile": {
+			"Type": "AWS::IAM::InstanceProfile",
+			"Properties": {
+				"Path": "/",
+				"Roles": [{
+					"Ref": "InstanceRole"
+				}]
+			}
+		},
+		"S3Bucket": {
+			"Type": "AWS::S3::Bucket"
+		},
+		"SNSTopicBYOL": {
+			"Type": "AWS::SNS::Topic",
+			"Properties": {
+				"Subscription": [{
+					"Endpoint": {
+						"Ref": "APIGatewayURL"
+					},
+					"Protocol": "https"
+				}],
+				"TopicName": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-SNSTopicBYOL"
+						]
+					]
+				}
+			}
+		},
+		"SNSTopicPAYG": {
+			"Type": "AWS::SNS::Topic",
+			"Properties": {
+				"Subscription": [{
+					"Endpoint": {
+						"Ref": "APIGatewayURL"
+					},
+					"Protocol": "https"
+				}],
+				"TopicName": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-SNSTopicPAYG"
+						]
+					]
+				}
+			}
+		},
+		"FGTSecGrpBase": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPCID"
+				},
+				"GroupDescription": "FGTSecGrp",
+				"SecurityGroupIngress": [{
+						"Description": "Allow remote access to FGT",
+						"IpProtocol": "-1",
+						"FromPort": "0",
+						"ToPort": "65535",
+						"CidrIp": {
+							"Ref": "CIDRForInstanceAccess"
+						}
+					},
+					{
+						"Description": "Allow local VPC access to FGT",
+						"IpProtocol": "-1",
+						"FromPort": "0",
+						"ToPort": "65535",
+						"CidrIp": {
+							"Ref": "VPCCIDR"
+						}
+					}
+				]
+			}
+		},
+		"FGTSecGrpALBRule": {
+			"DependsOn": "FGTSecGrpBase",
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": {
+					"Ref": "FGTSecGrpBase"
+				},
+				"Description": "Allow ALBs to send traffic to FGTs",
+				"IpProtocol": "-1",
+				"FromPort": "0",
+				"ToPort": "65535",
+				"SourceSecurityGroupId": {
+					"Ref": "ALBSecGrp"
+				}
+			}
+		},
+		"FGTSecGrpNLBRule": {
+			"DependsOn": "FGTSecGrpBase",
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": {
+					"Ref": "FGTSecGrpBase"
+				},
+				"Description": "Allow NLBs to send traffic to FGTs on ListenerPort",
+				"IpProtocol": "tcp",
+				"FromPort": {
+					"Ref": "ListenerPort"
+				},
+				"ToPort": {
+					"Ref": "ListenerPort"
+				},
+				"CidrIp": "0.0.0.0/0"
+			}
+		},
+		"ExternalNLB": {
+			"Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+			"Properties": {
+				"Name": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-ExternalNLB"
+						]
+					]
+				},
+				"Scheme": "internet-facing",
+				"Subnets": [{
+						"Ref": "PublicSubnet1"
+					},
+					{
+						"Ref": "PublicSubnet2"
+					}
+				],
+				"Type": "network",
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": [
+							"", [{
+									"Ref": "AWS::StackName"
+								},
+								"-ExternalNLB"
+							]
+						]
+					}
+				}]
+			}
+		},
+		"ExtNLBGrp": {
+			"Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+			"Properties": {
+				"Name": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-ExtNLBGrp"
+						]
+					]
+				},
+				"Port": {
+					"Ref": "ListenerPort"
+				},
+				"Protocol": "TCP",
+				"HealthCheckProtocol": "TCP",
+				"HealthCheckPort": "541",
+				"TargetType": "instance",
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Fn::Join": [
+							"", [{
+									"Ref": "AWS::StackName"
+								},
+								"-ExtNLBGrp"
+							]
+						]
+					}
+				}],
+				"VpcId": {
+					"Ref": "VPCID"
+				}
+			}
+		},
+		"ExternalNLBListener": {
+			"Type": "AWS::ElasticLoadBalancingV2::Listener",
+			"Properties": {
+				"DefaultActions": [{
+					"Type": "forward",
+					"TargetGroupArn": {
+						"Ref": "ExtNLBGrp"
+					}
+				}],
+				"LoadBalancerArn": {
+					"Ref": "ExternalNLB"
+				},
+				"Port": {
+					"Ref": "ListenerPort"
+				},
+				"Protocol": "TCP"
+			}
+		},
+		"ASGRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"Service": [
+								"autoscaling.amazonaws.com"
+							]
+						},
+						"Action": [
+							"sts:AssumeRole"
+						]
+					}]
+				},
+				"Path": "/",
+				"ManagedPolicyArns": ["arn:aws-cn:iam::aws:policy/service-role/AutoScalingNotificationAccessRole"]
+			} 
+		},
+		"LaunchConfigBYOL": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"ImageId": {
+					"Fn::FindInMap": [
+						"RegionMap",
+						{
+							"Ref": "AWS::Region"
+						},
+						"fgtamib"
+					]
+				},
+				"SecurityGroups": [{
+					"Ref": "FGTSecGrpBase"
+				}],
+				"KeyName": {
+					"Ref": "KeyPair"
+				},
+				"InstanceType": {
+					"Ref": "BYOLInstanceType"
+				},
+				"AssociatePublicIpAddress": "true",
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": ["\n", [
+							"config system global",
+							"set pre-login-banner disable",
+							"end",
+							"config system admin",
+							"edit admin",
+							"set force-password-change disable",
+							{
+								"Fn::Sub": "set password ${Password}"
+							},
+							"next",
+							"end"
+						]]
+					}
+				}
+			}
+		},
+		"ASGLifecycleHookLaunchBYOL": {
+			"Type": "AWS::AutoScaling::LifecycleHook",
+			"Properties": {
+				"AutoScalingGroupName": {
+					"Ref": "ASGBYOL"
+				},
+				"DefaultResult": "ABANDON",
+				"HeartbeatTimeout": "240",
+				"LifecycleHookName": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-",
+							{
+								"Ref": "EnvironmentTag"
+							},
+							"-fgt-launch-lch-byol"
+						]
+					]
+				},
+				"LifecycleTransition": "autoscaling:EC2_INSTANCE_LAUNCHING",
+				"NotificationMetadata": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "PublicSubnet1"
+							},
+							":",
+							{
+								"Ref": "PrivateSubnet1"
+							},
+							":",
+							{
+								"Ref": "PublicSubnet2"
+							},
+							":",
+							{
+								"Ref": "PrivateSubnet2"
+							}
+						]
+					]
+				},
+				"NotificationTargetARN": {
+					"Ref": "SNSTopicBYOL"
+				},
+				"RoleARN": {
+					"Fn::GetAtt": ["ASGRole", "Arn"]
+				}
+			}
+		},
+		"ASGLifecycleHookTerminateBYOL": {
+			"Type": "AWS::AutoScaling::LifecycleHook",
+			"Properties": {
+				"AutoScalingGroupName": {
+					"Ref": "ASGBYOL"
+				},
+				"DefaultResult": "ABANDON",
+				"HeartbeatTimeout": "240",
+				"LifecycleHookName": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-",
+							{
+								"Ref": "EnvironmentTag"
+							},
+							"-fgt-terminate-lch-byol"
+						]
+					]
+				},
+				"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING",
+				"NotificationTargetARN": {
+					"Ref": "SNSTopicBYOL"
+				},
+				"RoleARN": {
+					"Fn::GetAtt": ["ASGRole", "Arn"]
+				}
+			}
+		},
+		"ASGBYOL": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Properties": {
+				"DesiredCapacity": {
+					"Ref": "ASGBYOLMinSize"
+				},
+				"LaunchConfigurationName": {
+					"Ref": "LaunchConfigBYOL"
+				},
+				"MaxSize": {
+					"Ref": "ASGBYOLMaxSize"
+				},
+				"MinSize": {
+					"Ref": "ASGBYOLMinSize"
+				},
+				"TerminationPolicies": [
+					"NewestInstance"
+				],
+				"TargetGroupARNs": [{
+						"Ref": "ExtNLBGrp"
+					},
+					{
+						"Ref": "ExtALBGrp"
+					}
+				],
+				"VPCZoneIdentifier": [{
+						"Ref": "PublicSubnet1"
+					},
+					{
+						"Ref": "PublicSubnet2"
+					}
+				],
+				"Tags": [{
+						"Key": "AutoScale Group Instance",
+						"Value": {
+							"Fn::Join": [
+								"", [{
+										"Ref": "AWS::StackName"
+									},
+									"-",
+									{
+										"Ref": "EnvironmentTag"
+									},
+									"-byol"
+								]
+							]
+						},
+						"PropagateAtLaunch": "true"
+					},
+					{
+						"Key": "Fortigate-S3-License-Bucket",
+						"Value": {
+							"Ref": "InitS3Bucket"
+						},
+						"PropagateAtLaunch": "true"
+					},
+					{
+						"Key": "Fortigate-License",
+						"Value": "byol",
+						"PropagateAtLaunch": "true"
+					},
+					{
+						"Key": "Name",
+						"Value": {
+							"Fn::Join": [
+								"", [{
+										"Ref": "AWS::StackName"
+									},
+									"-",
+									{
+										"Ref": "EnvironmentTag"
+									},
+									"-asg-instance"
+								]
+							]
+						},
+						"PropagateAtLaunch": "true"
+					}
+				]
+			}
+		},
+		"LaunchConfigPAYG": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"ImageId": {
+					"Fn::FindInMap": [
+						"RegionMap",
+						{
+							"Ref": "AWS::Region"
+						},
+						"fgtamip"
+					]
+				},
+				"SecurityGroups": [{
+					"Ref": "FGTSecGrpBase"
+				}],
+				"KeyName": {
+					"Ref": "KeyPair"
+				},
+				"InstanceType": {
+					"Ref": "PAYGInstanceType"
+				},
+				"AssociatePublicIpAddress": "true",
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": ["\n", [
+							"config system global",
+							"set pre-login-banner disable",
+							"end",
+							"config system admin",
+							"edit admin",
+							"set force-password-change disable",
+							{
+								"Fn::Sub": "set password ${Password}"
+							},
+							"next",
+							"end"
+						]]
+					}
+				}
+			}
+		},
+		"ASGLifecycleHookLaunchPAYG": {
+			"Type": "AWS::AutoScaling::LifecycleHook",
+			"Properties": {
+				"AutoScalingGroupName": {
+					"Ref": "ASGPAYG"
+				},
+				"DefaultResult": "ABANDON",
+				"HeartbeatTimeout": "240",
+				"LifecycleHookName": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-",
+							{
+								"Ref": "EnvironmentTag"
+							},
+							"-fgt-launch-lch-paygo"
+						]
+					]
+				},
+				"LifecycleTransition": "autoscaling:EC2_INSTANCE_LAUNCHING",
+				"NotificationMetadata": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "PublicSubnet1"
+							},
+							":",
+							{
+								"Ref": "PrivateSubnet1"
+							},
+							":",
+							{
+								"Ref": "PublicSubnet2"
+							},
+							":",
+							{
+								"Ref": "PrivateSubnet2"
+							}
+						]
+					]
+				},
+				"NotificationTargetARN": {
+					"Ref": "SNSTopicPAYG"
+				},
+				"RoleARN": {
+					"Fn::GetAtt": ["ASGRole", "Arn"]
+				}
+			}
+		},
+		"ASGLifecycleHookTerminatePAYG": {
+			"Type": "AWS::AutoScaling::LifecycleHook",
+			"Properties": {
+				"AutoScalingGroupName": {
+					"Ref": "ASGPAYG"
+				},
+				"DefaultResult": "ABANDON",
+				"HeartbeatTimeout": "240",
+				"LifecycleHookName": {
+					"Fn::Join": [
+						"", [{
+								"Ref": "AWS::StackName"
+							},
+							"-",
+							{
+								"Ref": "EnvironmentTag"
+							},
+							"-fgt-terminate-lch-paygo"
+						]
+					]
+				},
+				"LifecycleTransition": "autoscaling:EC2_INSTANCE_TERMINATING",
+				"NotificationTargetARN": {
+					"Ref": "SNSTopicPAYG"
+				},
+				"RoleARN": {
+					"Fn::GetAtt": ["ASGRole", "Arn"]
+				}
+			}
+		},
+		"ASGPAYG": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Properties": {
+				"DesiredCapacity": {
+					"Ref": "ASGPAYGMinSize"
+				},
+				"LaunchConfigurationName": {
+					"Ref": "LaunchConfigPAYG"
+				},
+				"MaxSize": {
+					"Ref": "ASGPAYGMaxSize"
+				},
+				"MinSize": {
+					"Ref": "ASGPAYGMinSize"
+				},
+				"TerminationPolicies": [
+					"NewestInstance"
+				],
+				"TargetGroupARNs": [{
+						"Ref": "ExtNLBGrp"
+					},
+					{
+						"Ref": "ExtALBGrp"
+					}
+				],
+				"VPCZoneIdentifier": [{
+						"Ref": "PublicSubnet1"
+					},
+					{
+						"Ref": "PublicSubnet2"
+					}
+				],
+				"Tags": [{
+						"Key": "AutoScale Group Instance",
+						"Value": {
+							"Fn::Join": [
+								"", [{
+										"Ref": "AWS::StackName"
+									},
+									"-",
+									{
+										"Ref": "EnvironmentTag"
+									},
+									"-paygo"
+								]
+							]
+						},
+						"PropagateAtLaunch": "true"
+					},
+					{
+						"Key": "Fortigate-S3-License-Bucket",
+						"Value": {
+							"Ref": "InitS3Bucket"
+						},
+						"PropagateAtLaunch": "true"
+					},
+					{
+						"Key": "Fortigate-License",
+						"Value": "paygo",
+						"PropagateAtLaunch": "true"
+					},
+					{
+						"Key": "Name",
+						"Value": {
+							"Fn::Join": [
+								"", [{
+										"Ref": "AWS::StackName"
+									},
+									"-",
+									{
+										"Ref": "EnvironmentTag"
+									},
+									"-asg-instance"
+								]
+							]
+						},
+						"PropagateAtLaunch": "true"
+					}
+				]
+			}
+		},
+		"ScaleInPolicy": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+				"AdjustmentType": "ChangeInCapacity",
+				"AutoScalingGroupName": {
+					"Ref": "ASGPAYG"
+				},
+				"ScalingAdjustment": "-1"
+			}
+		},
+		"ScaleOutPolicy": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+				"AdjustmentType": "ChangeInCapacity",
+				"AutoScalingGroupName": {
+					"Ref": "ASGPAYG"
+				},
+				"ScalingAdjustment": "1"
+			}
+		},
+		"CPUAlarmLow": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+				"EvaluationPeriods": "1",
+				"Statistic": "Average",
+				"Threshold": {
+					"Ref": "ScaleDownThreshold"
+				},
+				"AlarmDescription": "This metric monitors ec2 cpu utilization",
+				"Period": "300",
+				"AlarmActions": [{
+					"Ref": "ScaleInPolicy"
+				}],
+				"Namespace": "AWS/EC2",
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": {
+						"Ref": "ASGBYOL"
+					}
+				}],
+				"ComparisonOperator": "LessThanOrEqualToThreshold",
+				"MetricName": "CPUUtilization"
+			}
+		},
+		"CPUAlarmHigh": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+				"EvaluationPeriods": "1",
+				"Statistic": "Average",
+				"Threshold": {
+					"Ref": "ScaleUpThreshold"
+				},
+				"AlarmDescription": "This metric monitors ec2 cpu utilization",
+				"Period": "300",
+				"AlarmActions": [{
+					"Ref": "ScaleOutPolicy"
+				}],
+				"Namespace": "AWS/EC2",
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": {
+						"Ref": "ASGBYOL"
+					}
+				}],
+				"ComparisonOperator": "GreaterThanOrEqualToThreshold",
+				"MetricName": "CPUUtilization"
+			}
+		}
+	},
+	"Outputs": {
+		"Username": {
+			"Value": "admin",
+			"Description": "Username for the Fortigates"
+		},
+		"Password": {
+			"Value": {
+				"Ref": "Password"
+			},
+			"Description": "Initial password for the FortiGates"
+		}
+
+	}
+}
