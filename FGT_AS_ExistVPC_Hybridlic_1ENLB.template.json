@@ -181,7 +181,7 @@
 		},
 		"ASGPAYGMaxSize": {
 			"Type": "Number",
-			"Default": "5",
+			"Default": "0",
 			"Description": "Maximum number of FortiGate instances in the PAYG Auto-Scaling Group."
 		}
 	},
@@ -248,10 +248,12 @@
 				"fgtamip": "ami-00a5f7f2848b21194"
 			},
 			"cn-northwest-1": {
-				"fgtamib": "ami-01e24cde88b2a7976"
+				"fgtamib": "ami-01e24cde88b2a7976",
+				"fgtamip": "ami-01e24cde88b2a7976"
 			},
 			"cn-north-1": {
-				"fgtamib": "ami-05770fc6211ef785a"
+				"fgtamib": "ami-05770fc6211ef785a",
+				"fgtamip": "ami-05770fc6211ef785a"
 			}
 		}
 	},
@@ -268,7 +270,7 @@
 							"Effect": "Allow",
 							"Principal": {
 								"Service": [
-									"ec2.amazonaws.com"
+									"ec2.amazonaws.com.cn"
 								]
 							},
 							"Action": [
@@ -1063,9 +1065,7 @@
 			"Description": "Username for the Fortigates"
 		},
 		"Password": {
-			"Value": {
-				"Ref": "Password"
-			},
+			"Value": "This is the input value for the Password parameter ",
 			"Description": "Initial password for the FortiGates"
 		}
 	}
