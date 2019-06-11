@@ -48,6 +48,12 @@
 			"ca-central-1": {
 				"LambdaCode": "fortibucket-ca-central-1"
 			}
+			"cn-north-1": {
+				"LambdaCode": "fortibucket-cn-north-1"
+			}
+			"cn-northwest-1": {
+				"LambdaCode": "fortibucket-cn-northwest-1"
+			}
 		}
 	},
 	"Resources": {
@@ -101,7 +107,7 @@
 					"IntegrationHttpMethod": "ANY",
 					"Type": "AWS_PROXY",
 					"Uri": {
-						"Fn::Join": ["", ["arn:aws:apigateway:", {
+						"Fn::Join": ["", ["arn:aws-cn:apigateway:", {
 							"Ref": "AWS::Region"
 						}, ":lambda:path/2015-03-31/functions/", {
 							"Fn::GetAtt": ["AutoScaleLambda", "Arn"]
@@ -125,7 +131,7 @@
 					"IntegrationHttpMethod": "ANY",
 					"Type": "AWS_PROXY",
 					"Uri": {
-						"Fn::Join": ["", ["arn:aws:apigateway:", {
+						"Fn::Join": ["", ["arn:aws-cn:apigateway:", {
 							"Ref": "AWS::Region"
 						}, ":lambda:path/2015-03-31/functions/", {
 							"Fn::GetAtt": ["AutoScaleLambda", "Arn"]
@@ -245,7 +251,7 @@
 				},
 				"Principal": "apigateway.amazonaws.com",
 				"SourceArn": {
-					"Fn::Join": ["", ["arn:aws:execute-api:", {
+					"Fn::Join": ["", ["arn:aws-cn:execute-api:", {
 						"Ref": "AWS::Region"
 					}, ":", {
 						"Ref": "AWS::AccountId"
