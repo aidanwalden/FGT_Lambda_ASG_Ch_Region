@@ -3,7 +3,8 @@
 	"Description": "(v1.1) AWS CloudFormation Template to deploy a hybrid license based FortiGate AutoScaling solution",
 	"Metadata": {
 		"AWS::CloudFormation::Interface": {
-			"ParameterGroups": [{
+			"ParameterGroups": [
+				{
 					"Label": {
 						"default": "VPC Configuration"
 					},
@@ -244,54 +245,67 @@
 			},
 			"us-west-2": {
 				"fgtamib": "ami-0e02bbdf523a30000",
-                "fgtamip": "ami-00a5f7f2848b21194"
-            }  
-            "cn-northwest-1:": {
-                "fgtamib": "ami-01e24cde88b2a7976"
-            }
-            "cn-north-1": {
-                "fgtamib": "ami-05770fc6211ef785a"
-            }
+				"fgtamip": "ami-00a5f7f2848b21194"
+			},
+			"cn-northwest-1": {
+				"fgtamib": "ami-01e24cde88b2a7976"
+			},
+			"cn-north-1": {
+				"fgtamib": "ami-05770fc6211ef785a"
+			}
 		}
 	},
-	"Conditions": {},
+	"Conditions": {
+	},
 	"Resources": {
 		"InstanceRole": {
 			"Type": "AWS::IAM::Role",
 			"Properties": {
 				"AssumeRolePolicyDocument": {
 					"Version": "2012-10-17",
-					"Statement": [{
-						"Effect": "Allow",
-						"Principal": {
-							"Service": ["ec2.amazonaws.com"]
-						},
-						"Action": ["sts:AssumeRole"]
-					}]
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"ec2.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
+							]
+						}
+					]
 				},
 				"Path": "/",
-				"Policies": [{
-					"PolicyName": "ApplicationPolicy",
-					"PolicyDocument": {
-						"Version": "2012-10-17",
-						"Statement": [{
-							"Effect": "Allow",
-							"Action": [
-								"s3:GetObject"
-							],
-							"Resource": "*"
-						}]
+				"Policies": [
+					{
+						"PolicyName": "ApplicationPolicy",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": [
+								{
+									"Effect": "Allow",
+									"Action": [
+										"s3:GetObject"
+									],
+									"Resource": "*"
+								}
+							]
+						}
 					}
-				}]
+				]
 			}
 		},
 		"InstanceProfile": {
 			"Type": "AWS::IAM::InstanceProfile",
 			"Properties": {
 				"Path": "/",
-				"Roles": [{
-					"Ref": "InstanceRole"
-				}]
+				"Roles": [
+					{
+						"Ref": "InstanceRole"
+					}
+				]
 			}
 		},
 		"S3Bucket": {
@@ -300,15 +314,19 @@
 		"SNSTopicBYOL": {
 			"Type": "AWS::SNS::Topic",
 			"Properties": {
-				"Subscription": [{
-					"Endpoint": {
-						"Ref": "APIGatewayURL"
-					},
-					"Protocol": "https"
-				}],
+				"Subscription": [
+					{
+						"Endpoint": {
+							"Ref": "APIGatewayURL"
+						},
+						"Protocol": "https"
+					}
+				],
 				"TopicName": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-SNSTopicBYOL"
@@ -320,15 +338,19 @@
 		"SNSTopicPAYG": {
 			"Type": "AWS::SNS::Topic",
 			"Properties": {
-				"Subscription": [{
-					"Endpoint": {
-						"Ref": "APIGatewayURL"
-					},
-					"Protocol": "https"
-				}],
+				"Subscription": [
+					{
+						"Endpoint": {
+							"Ref": "APIGatewayURL"
+						},
+						"Protocol": "https"
+					}
+				],
 				"TopicName": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-SNSTopicPAYG"
@@ -344,7 +366,8 @@
 					"Ref": "VPCID"
 				},
 				"GroupDescription": "FGTSecGrp",
-				"SecurityGroupIngress": [{
+				"SecurityGroupIngress": [
+					{
 						"Description": "Allow remote access to FGT",
 						"IpProtocol": "-1",
 						"FromPort": "0",
@@ -363,22 +386,6 @@
 						}
 					}
 				]
-			}
-		},
-		"FGTSecGrpALBRule": {
-			"DependsOn": "FGTSecGrpBase",
-			"Type": "AWS::EC2::SecurityGroupIngress",
-			"Properties": {
-				"GroupId": {
-					"Ref": "FGTSecGrpBase"
-				},
-				"Description": "Allow ALBs to send traffic to FGTs",
-				"IpProtocol": "-1",
-				"FromPort": "0",
-				"ToPort": "65535",
-				"SourceSecurityGroupId": {
-					"Ref": "ALBSecGrp"
-				}
 			}
 		},
 		"FGTSecGrpNLBRule": {
@@ -404,7 +411,9 @@
 			"Properties": {
 				"Name": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-ExternalNLB"
@@ -412,7 +421,8 @@
 					]
 				},
 				"Scheme": "internet-facing",
-				"Subnets": [{
+				"Subnets": [
+					{
 						"Ref": "PublicSubnet1"
 					},
 					{
@@ -420,18 +430,22 @@
 					}
 				],
 				"Type": "network",
-				"Tags": [{
-					"Key": "Name",
-					"Value": {
-						"Fn::Join": [
-							"", [{
-									"Ref": "AWS::StackName"
-								},
-								"-ExternalNLB"
+				"Tags": [
+					{
+						"Key": "Name",
+						"Value": {
+							"Fn::Join": [
+								"",
+								[
+									{
+										"Ref": "AWS::StackName"
+									},
+									"-ExternalNLB"
+								]
 							]
-						]
+						}
 					}
-				}]
+				]
 			}
 		},
 		"ExtNLBGrp": {
@@ -439,7 +453,9 @@
 			"Properties": {
 				"Name": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-ExtNLBGrp"
@@ -453,18 +469,22 @@
 				"HealthCheckProtocol": "TCP",
 				"HealthCheckPort": "541",
 				"TargetType": "instance",
-				"Tags": [{
-					"Key": "Name",
-					"Value": {
-						"Fn::Join": [
-							"", [{
-									"Ref": "AWS::StackName"
-								},
-								"-ExtNLBGrp"
+				"Tags": [
+					{
+						"Key": "Name",
+						"Value": {
+							"Fn::Join": [
+								"",
+								[
+									{
+										"Ref": "AWS::StackName"
+									},
+									"-ExtNLBGrp"
+								]
 							]
-						]
+						}
 					}
-				}],
+				],
 				"VpcId": {
 					"Ref": "VPCID"
 				}
@@ -473,12 +493,14 @@
 		"ExternalNLBListener": {
 			"Type": "AWS::ElasticLoadBalancingV2::Listener",
 			"Properties": {
-				"DefaultActions": [{
-					"Type": "forward",
-					"TargetGroupArn": {
-						"Ref": "ExtNLBGrp"
+				"DefaultActions": [
+					{
+						"Type": "forward",
+						"TargetGroupArn": {
+							"Ref": "ExtNLBGrp"
+						}
 					}
-				}],
+				],
 				"LoadBalancerArn": {
 					"Ref": "ExternalNLB"
 				},
@@ -492,21 +514,25 @@
 			"Type": "AWS::IAM::Role",
 			"Properties": {
 				"AssumeRolePolicyDocument": {
-					"Statement": [{
-						"Effect": "Allow",
-						"Principal": {
-							"Service": [
-								"autoscaling.amazonaws.com"
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"autoscaling.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
 							]
-						},
-						"Action": [
-							"sts:AssumeRole"
-						]
-					}]
+						}
+					]
 				},
 				"Path": "/",
-				"ManagedPolicyArns": ["arn:aws-cn:iam::aws:policy/service-role/AutoScalingNotificationAccessRole"]
-			} 
+				"ManagedPolicyArns": [
+					"arn:aws-cn:iam::aws:policy/service-role/AutoScalingNotificationAccessRole"
+				]
+			}
 		},
 		"LaunchConfigBYOL": {
 			"Type": "AWS::AutoScaling::LaunchConfiguration",
@@ -520,9 +546,11 @@
 						"fgtamib"
 					]
 				},
-				"SecurityGroups": [{
-					"Ref": "FGTSecGrpBase"
-				}],
+				"SecurityGroups": [
+					{
+						"Ref": "FGTSecGrpBase"
+					}
+				],
 				"KeyName": {
 					"Ref": "KeyPair"
 				},
@@ -532,19 +560,22 @@
 				"AssociatePublicIpAddress": "true",
 				"UserData": {
 					"Fn::Base64": {
-						"Fn::Join": ["\n", [
-							"config system global",
-							"set pre-login-banner disable",
-							"end",
-							"config system admin",
-							"edit admin",
-							"set force-password-change disable",
-							{
-								"Fn::Sub": "set password ${Password}"
-							},
-							"next",
-							"end"
-						]]
+						"Fn::Join": [
+							"\n",
+							[
+								"config system global",
+								"set pre-login-banner disable",
+								"end",
+								"config system admin",
+								"edit admin",
+								"set force-password-change disable",
+								{
+									"Fn::Sub": "set password ${Password}"
+								},
+								"next",
+								"end"
+							]
+						]
 					}
 				}
 			}
@@ -559,7 +590,9 @@
 				"HeartbeatTimeout": "240",
 				"LifecycleHookName": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-",
@@ -573,7 +606,9 @@
 				"LifecycleTransition": "autoscaling:EC2_INSTANCE_LAUNCHING",
 				"NotificationMetadata": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "PublicSubnet1"
 							},
 							":",
@@ -595,7 +630,10 @@
 					"Ref": "SNSTopicBYOL"
 				},
 				"RoleARN": {
-					"Fn::GetAtt": ["ASGRole", "Arn"]
+					"Fn::GetAtt": [
+						"ASGRole",
+						"Arn"
+					]
 				}
 			}
 		},
@@ -609,7 +647,9 @@
 				"HeartbeatTimeout": "240",
 				"LifecycleHookName": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-",
@@ -625,7 +665,10 @@
 					"Ref": "SNSTopicBYOL"
 				},
 				"RoleARN": {
-					"Fn::GetAtt": ["ASGRole", "Arn"]
+					"Fn::GetAtt": [
+						"ASGRole",
+						"Arn"
+					]
 				}
 			}
 		},
@@ -647,25 +690,27 @@
 				"TerminationPolicies": [
 					"NewestInstance"
 				],
-				"TargetGroupARNs": [{
-						"Ref": "ExtNLBGrp"
-					},
+				"TargetGroupARNs": [
 					{
-						"Ref": "ExtALBGrp"
+						"Ref": "ExtNLBGrp"
 					}
 				],
-				"VPCZoneIdentifier": [{
+				"VPCZoneIdentifier": [
+					{
 						"Ref": "PublicSubnet1"
 					},
 					{
 						"Ref": "PublicSubnet2"
 					}
 				],
-				"Tags": [{
+				"Tags": [
+					{
 						"Key": "AutoScale Group Instance",
 						"Value": {
 							"Fn::Join": [
-								"", [{
+								"",
+								[
+									{
 										"Ref": "AWS::StackName"
 									},
 									"-",
@@ -694,7 +739,9 @@
 						"Key": "Name",
 						"Value": {
 							"Fn::Join": [
-								"", [{
+								"",
+								[
+									{
 										"Ref": "AWS::StackName"
 									},
 									"-",
@@ -722,9 +769,11 @@
 						"fgtamip"
 					]
 				},
-				"SecurityGroups": [{
-					"Ref": "FGTSecGrpBase"
-				}],
+				"SecurityGroups": [
+					{
+						"Ref": "FGTSecGrpBase"
+					}
+				],
 				"KeyName": {
 					"Ref": "KeyPair"
 				},
@@ -734,19 +783,22 @@
 				"AssociatePublicIpAddress": "true",
 				"UserData": {
 					"Fn::Base64": {
-						"Fn::Join": ["\n", [
-							"config system global",
-							"set pre-login-banner disable",
-							"end",
-							"config system admin",
-							"edit admin",
-							"set force-password-change disable",
-							{
-								"Fn::Sub": "set password ${Password}"
-							},
-							"next",
-							"end"
-						]]
+						"Fn::Join": [
+							"\n",
+							[
+								"config system global",
+								"set pre-login-banner disable",
+								"end",
+								"config system admin",
+								"edit admin",
+								"set force-password-change disable",
+								{
+									"Fn::Sub": "set password ${Password}"
+								},
+								"next",
+								"end"
+							]
+						]
 					}
 				}
 			}
@@ -761,7 +813,9 @@
 				"HeartbeatTimeout": "240",
 				"LifecycleHookName": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-",
@@ -775,7 +829,9 @@
 				"LifecycleTransition": "autoscaling:EC2_INSTANCE_LAUNCHING",
 				"NotificationMetadata": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "PublicSubnet1"
 							},
 							":",
@@ -797,7 +853,10 @@
 					"Ref": "SNSTopicPAYG"
 				},
 				"RoleARN": {
-					"Fn::GetAtt": ["ASGRole", "Arn"]
+					"Fn::GetAtt": [
+						"ASGRole",
+						"Arn"
+					]
 				}
 			}
 		},
@@ -811,7 +870,9 @@
 				"HeartbeatTimeout": "240",
 				"LifecycleHookName": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-",
@@ -827,7 +888,10 @@
 					"Ref": "SNSTopicPAYG"
 				},
 				"RoleARN": {
-					"Fn::GetAtt": ["ASGRole", "Arn"]
+					"Fn::GetAtt": [
+						"ASGRole",
+						"Arn"
+					]
 				}
 			}
 		},
@@ -849,25 +913,27 @@
 				"TerminationPolicies": [
 					"NewestInstance"
 				],
-				"TargetGroupARNs": [{
-						"Ref": "ExtNLBGrp"
-					},
+				"TargetGroupARNs": [
 					{
-						"Ref": "ExtALBGrp"
+						"Ref": "ExtNLBGrp"
 					}
 				],
-				"VPCZoneIdentifier": [{
+				"VPCZoneIdentifier": [
+					{
 						"Ref": "PublicSubnet1"
 					},
 					{
 						"Ref": "PublicSubnet2"
 					}
 				],
-				"Tags": [{
+				"Tags": [
+					{
 						"Key": "AutoScale Group Instance",
 						"Value": {
 							"Fn::Join": [
-								"", [{
+								"",
+								[
+									{
 										"Ref": "AWS::StackName"
 									},
 									"-",
@@ -896,7 +962,9 @@
 						"Key": "Name",
 						"Value": {
 							"Fn::Join": [
-								"", [{
+								"",
+								[
+									{
 										"Ref": "AWS::StackName"
 									},
 									"-",
@@ -942,16 +1010,20 @@
 				},
 				"AlarmDescription": "This metric monitors ec2 cpu utilization",
 				"Period": "300",
-				"AlarmActions": [{
-					"Ref": "ScaleInPolicy"
-				}],
-				"Namespace": "AWS/EC2",
-				"Dimensions": [{
-					"Name": "AutoScalingGroupName",
-					"Value": {
-						"Ref": "ASGBYOL"
+				"AlarmActions": [
+					{
+						"Ref": "ScaleInPolicy"
 					}
-				}],
+				],
+				"Namespace": "AWS/EC2",
+				"Dimensions": [
+					{
+						"Name": "AutoScalingGroupName",
+						"Value": {
+							"Ref": "ASGBYOL"
+						}
+					}
+				],
 				"ComparisonOperator": "LessThanOrEqualToThreshold",
 				"MetricName": "CPUUtilization"
 			}
@@ -966,16 +1038,20 @@
 				},
 				"AlarmDescription": "This metric monitors ec2 cpu utilization",
 				"Period": "300",
-				"AlarmActions": [{
-					"Ref": "ScaleOutPolicy"
-				}],
-				"Namespace": "AWS/EC2",
-				"Dimensions": [{
-					"Name": "AutoScalingGroupName",
-					"Value": {
-						"Ref": "ASGBYOL"
+				"AlarmActions": [
+					{
+						"Ref": "ScaleOutPolicy"
 					}
-				}],
+				],
+				"Namespace": "AWS/EC2",
+				"Dimensions": [
+					{
+						"Name": "AutoScalingGroupName",
+						"Value": {
+							"Ref": "ASGBYOL"
+						}
+					}
+				],
 				"ComparisonOperator": "GreaterThanOrEqualToThreshold",
 				"MetricName": "CPUUtilization"
 			}
@@ -992,6 +1068,5 @@
 			},
 			"Description": "Initial password for the FortiGates"
 		}
-
 	}
 }

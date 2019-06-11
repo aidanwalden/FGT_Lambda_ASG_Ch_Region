@@ -47,10 +47,10 @@
 			},
 			"ca-central-1": {
 				"LambdaCode": "fortibucket-ca-central-1"
-			}
+			},
 			"cn-north-1": {
 				"LambdaCode": "fortibucket-cn-north-1"
-			}
+			},
 			"cn-northwest-1": {
 				"LambdaCode": "fortibucket-cn-northwest-1"
 			}
@@ -61,7 +61,10 @@
 			"Type": "AWS::ApiGateway::Account",
 			"Properties": {
 				"CloudWatchRoleArn": {
-					"Fn::GetAtt": ["AutoScaleAPIRole", "Arn"]
+					"Fn::GetAtt": [
+						"AutoScaleAPIRole",
+						"Arn"
+					]
 				}
 			}
 		},
@@ -70,14 +73,23 @@
 			"Properties": {
 				"Name": {
 					"Fn::Join": [
-						"", [{
+						"",
+						[
+							{
 								"Ref": "AWS::StackName"
 							},
 							"-autoscale-dev"
 						]
 					]
 				},
-				"Description": "API Gateway used for FortiGate AutoScaling requests"
+				"EndpointConfiguration": {
+					"Types": [
+						"REGIONAL"
+					]
+				},
+				"Description": "API Gateway used for FortiGate AutoScaling requests",
+				"ApiKeySourceType": "HEADER",
+				"FailOnWarnings": true
 			}
 		},
 		"AutoScaleAPIResource": {
@@ -87,7 +99,10 @@
 					"Ref": "AutoScaleAPI"
 				},
 				"ParentId": {
-					"Fn::GetAtt": ["AutoScaleAPI", "RootResourceId"]
+					"Fn::GetAtt": [
+						"AutoScaleAPI",
+						"RootResourceId"
+					]
 				},
 				"PathPart": "{proxy+}"
 			}
@@ -97,7 +112,10 @@
 			"Properties": {
 				"HttpMethod": "ANY",
 				"ResourceId": {
-					"Fn::GetAtt": ["AutoScaleAPI", "RootResourceId"]
+					"Fn::GetAtt": [
+						"AutoScaleAPI",
+						"RootResourceId"
+					]
 				},
 				"RestApiId": {
 					"Ref": "AutoScaleAPI"
@@ -107,11 +125,23 @@
 					"IntegrationHttpMethod": "ANY",
 					"Type": "AWS_PROXY",
 					"Uri": {
-						"Fn::Join": ["", ["arn:aws-cn:apigateway:", {
-							"Ref": "AWS::Region"
-						}, ":lambda:path/2015-03-31/functions/", {
-							"Fn::GetAtt": ["AutoScaleLambda", "Arn"]
-						}, "/invocations"]]
+						"Fn::Join": [
+							"",
+							[
+								"arn:aws-cn:apigateway:",
+								{
+									"Ref": "AWS::Region"
+								},
+								":lambda:path/2015-03-31/functions/",
+								{
+									"Fn::GetAtt": [
+										"AutoScaleLambda",
+										"Arn"
+									]
+								},
+								"/invocations"
+							]
+						]
 					}
 				}
 			}
@@ -131,18 +161,33 @@
 					"IntegrationHttpMethod": "ANY",
 					"Type": "AWS_PROXY",
 					"Uri": {
-						"Fn::Join": ["", ["arn:aws-cn:apigateway:", {
-							"Ref": "AWS::Region"
-						}, ":lambda:path/2015-03-31/functions/", {
-							"Fn::GetAtt": ["AutoScaleLambda", "Arn"]
-						}, "/invocations"]]
+						"Fn::Join": [
+							"",
+							[
+								"arn:aws-cn:apigateway:",
+								{
+									"Ref": "AWS::Region"
+								},
+								":lambda:path/2015-03-31/functions/",
+								{
+									"Fn::GetAtt": [
+										"AutoScaleLambda",
+										"Arn"
+									]
+								},
+								"/invocations"
+							]
+						]
 					}
 				}
 			}
 		},
 		"AutoScaleAPIDeployment": {
 			"Type": "AWS::ApiGateway::Deployment",
-			"DependsOn": ["AutoScaleAPIRootMethod", "AutoScaleAPIProxyMethod"],
+			"DependsOn": [
+				"AutoScaleAPIRootMethod",
+				"AutoScaleAPIProxyMethod"
+			],
 			"Properties": {
 				"RestApiId": {
 					"Ref": "AutoScaleAPI"
@@ -156,29 +201,31 @@
 				"Description": "CloudWatchEventRule",
 				"ScheduleExpression": "rate(1 minute)",
 				"State": "ENABLED",
-				"Targets": [{
-					"Arn": {
-						"Fn::GetAtt": [
-							"AutoScaleLambda",
-							"Arn"
-						]
-					},
-					"Id": "TargetFunctionV1",
-					"InputTransformer": {
-						"InputPathsMap": {
-							"detail-type": "$.detail-type",
-							"resources": "$.resources",
-							"detail": "$.detail",
-							"id": "$.id",
-							"source": "$.source",
-							"time": "$.time",
-							"region": "$.region",
-							"version": "$.version",
-							"account": "$.account"
+				"Targets": [
+					{
+						"Arn": {
+							"Fn::GetAtt": [
+								"AutoScaleLambda",
+								"Arn"
+							]
 						},
-						"InputTemplate": "{\"time\": <time>,\"detail-type\": <detail-type>,\"source\": <source>,\"account\": <account>,\"region\": <region>,\"detail\": <detail>,\"version\": <version>,\"resources\": <resources>,\"id\": <id>,\"kwargs\": {}}"
+						"Id": "TargetFunctionV1",
+						"InputTransformer": {
+							"InputPathsMap": {
+								"detail-type": "$.detail-type",
+								"resources": "$.resources",
+								"detail": "$.detail",
+								"id": "$.id",
+								"source": "$.source",
+								"time": "$.time",
+								"region": "$.region",
+								"version": "$.version",
+								"account": "$.account"
+							},
+							"InputTemplate": "{\"time\": <time>,\"detail-type\": <detail-type>,\"source\": <source>,\"account\": <account>,\"region\": <region>,\"detail\": <detail>,\"version\": <version>,\"resources\": <resources>,\"id\": <id>,\"kwargs\": {}}"
+						}
 					}
-				}]
+				]
 			}
 		},
 		"AutoScaleLambda": {
@@ -190,9 +237,13 @@
 			"Properties": {
 				"Code": {
 					"S3Bucket": {
-						"Fn::FindInMap": ["RegionMap", {
-							"Ref": "AWS::Region"
-						}, "LambdaCode"]
+						"Fn::FindInMap": [
+							"RegionMap",
+							{
+								"Ref": "AWS::Region"
+							},
+							"LambdaCode"
+						]
 					},
 					"S3Key": "autoscale-dev.zip"
 				},
@@ -213,33 +264,43 @@
 			"Properties": {
 				"AssumeRolePolicyDocument": {
 					"Version": "2012-10-17",
-					"Statement": [{
-						"Effect": "Allow",
-						"Principal": {
-							"Service": ["apigateway.amazonaws.com"]
-						},
-						"Action": ["sts:AssumeRole"]
-					}]
-				},
-				"Policies": [{
-					"PolicyName": "ApiGatewayLogsPolicy",
-					"PolicyDocument": {
-						"Version": "2012-10-17",
-						"Statement": [{
+					"Statement": [
+						{
 							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"apigateway.amazonaws.com"
+								]
+							},
 							"Action": [
-								"logs:CreateLogGroup",
-								"logs:CreateLogStream",
-								"logs:DescribeLogGroups",
-								"logs:DescribeLogStreams",
-								"logs:PutLogEvents",
-								"logs:GetLogEvents",
-								"logs:FilterLogEvents"
-							],
-							"Resource": "*"
-						}]
+								"sts:AssumeRole"
+							]
+						}
+					]
+				},
+				"Policies": [
+					{
+						"PolicyName": "ApiGatewayLogsPolicy",
+						"PolicyDocument": {
+							"Version": "2012-10-17",
+							"Statement": [
+								{
+									"Effect": "Allow",
+									"Action": [
+										"logs:CreateLogGroup",
+										"logs:CreateLogStream",
+										"logs:DescribeLogGroups",
+										"logs:DescribeLogStreams",
+										"logs:PutLogEvents",
+										"logs:GetLogEvents",
+										"logs:FilterLogEvents"
+									],
+									"Resource": "*"
+								}
+							]
+						}
 					}
-				}]
+				]
 			}
 		},
 		"PermissionForAPIGatewayToEnvokeLambda": {
@@ -247,17 +308,31 @@
 			"Properties": {
 				"Action": "lambda:invokeFunction",
 				"FunctionName": {
-					"Fn::GetAtt": ["AutoScaleLambda", "Arn"]
+					"Fn::GetAtt": [
+						"AutoScaleLambda",
+						"Arn"
+					]
 				},
 				"Principal": "apigateway.amazonaws.com",
 				"SourceArn": {
-					"Fn::Join": ["", ["arn:aws-cn:execute-api:", {
-						"Ref": "AWS::Region"
-					}, ":", {
-						"Ref": "AWS::AccountId"
-					}, ":", {
-						"Ref": "AutoScaleAPI"
-					}, "/*"]]
+					"Fn::Join": [
+						"",
+						[
+							"arn:aws-cn:execute-api:",
+							{
+								"Ref": "AWS::Region"
+							},
+							":",
+							{
+								"Ref": "AWS::AccountId"
+							},
+							":",
+							{
+								"Ref": "AutoScaleAPI"
+							},
+							"/*"
+						]
+					]
 				}
 			}
 		},
@@ -282,17 +357,19 @@
 			"Properties": {
 				"AssumeRolePolicyDocument": {
 					"Version": "2012-10-17",
-					"Statement": [{
-						"Effect": "Allow",
-						"Principal": {
-							"Service": [
-								"lambda.amazonaws.com"
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": [
+									"lambda.amazonaws.com"
+								]
+							},
+							"Action": [
+								"sts:AssumeRole"
 							]
-						},
-						"Action": [
-							"sts:AssumeRole"
-						]
-					}]
+						}
+					]
 				},
 				"Path": "/"
 			}
@@ -304,55 +381,59 @@
 			"Type": "AWS::IAM::Policy",
 			"Properties": {
 				"PolicyName": "AutoScaleLambdaPolicy",
-				"Roles": [{
-					"Ref": "AutoScaleLambdaRole"
-				}],
+				"Roles": [
+					{
+						"Ref": "AutoScaleLambdaRole"
+					}
+				],
 				"PolicyDocument": {
 					"Version": "2012-10-17",
-					"Statement": [{
-						"Effect": "Allow",
-						"Action": [
-							"logs:CreateLogGroup",
-							"logs:CreateLogStream",
-							"logs:PutLogEvents",
-							"elasticloadbalancing:RegisterTargets",
-							"elasticloadbalancing:DescribeTargetGroups",
-							"ec2:TerminateInstances",
-							"ec2:ResetNetworkInterfaceAttribute",
-							"ec2:ReplaceRoute",
-							"ec2:ModifyNetworkInterfaceAttribute",
-							"ec2:DetachNetworkInterface",
-							"ec2:DescribeRouteTables",
-							"ec2:DescribeNetworkInterfaces",
-							"ec2:DescribeInstances",
-							"ec2:DescribeInstanceStatus",
-							"ec2:DeleteNetworkInterface",
-							"ec2:CreateTags",
-							"ec2:CreateNetworkInterface",
-							"ec2:AttachNetworkInterface",
-							"cloudfront:UpdateDistribution",
-							"cloudformation:UpdateStack",
-							"cloudformation:ListStackResources",
-							"cloudformation:DescribeStacks",
-							"cloudformation:DescribeStackResources",
-							"cloudformation:DescribeStackResource",
-							"cloudformation:DeleteStack",
-							"cloudformation:CreateStack",
-							"autoscaling:UpdateAutoScalingGroup",
-							"autoscaling:DescribeAutoScalingInstances",
-							"autoscaling:DescribeAutoScalingGroups",
-							"autoscaling:CompleteLifecycleAction",
-							"route53:*",
-							"iam:*",
-							"apigateway:*",
-							"dynamodb:*",
-							"sns:*",
-							"s3:*"
-						],
-						"Resource": [
-							"*"
-						]
-					}]
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Action": [
+								"logs:CreateLogGroup",
+								"logs:CreateLogStream",
+								"logs:PutLogEvents",
+								"elasticloadbalancing:RegisterTargets",
+								"elasticloadbalancing:DescribeTargetGroups",
+								"ec2:TerminateInstances",
+								"ec2:ResetNetworkInterfaceAttribute",
+								"ec2:ReplaceRoute",
+								"ec2:ModifyNetworkInterfaceAttribute",
+								"ec2:DetachNetworkInterface",
+								"ec2:DescribeRouteTables",
+								"ec2:DescribeNetworkInterfaces",
+								"ec2:DescribeInstances",
+								"ec2:DescribeInstanceStatus",
+								"ec2:DeleteNetworkInterface",
+								"ec2:CreateTags",
+								"ec2:CreateNetworkInterface",
+								"ec2:AttachNetworkInterface",
+								"cloudfront:UpdateDistribution",
+								"cloudformation:UpdateStack",
+								"cloudformation:ListStackResources",
+								"cloudformation:DescribeStacks",
+								"cloudformation:DescribeStackResources",
+								"cloudformation:DescribeStackResource",
+								"cloudformation:DeleteStack",
+								"cloudformation:CreateStack",
+								"autoscaling:UpdateAutoScalingGroup",
+								"autoscaling:DescribeAutoScalingInstances",
+								"autoscaling:DescribeAutoScalingGroups",
+								"autoscaling:CompleteLifecycleAction",
+								"route53:*",
+								"iam:*",
+								"apigateway:*",
+								"dynamodb:*",
+								"sns:*",
+								"s3:*"
+							],
+							"Resource": [
+								"*"
+							]
+						}
+					]
 				}
 			}
 		}
@@ -361,11 +442,21 @@
 		"AutoScaleAPIURL": {
 			"Description": "AWS API Gateway URL",
 			"Value": {
-				"Fn::Join": ["", ["https://", {
-					"Ref": "AutoScaleAPI"
-				}, ".execute-api.", {
-					"Ref": "AWS::Region"
-				}, ".amazonaws.com", "/dev/sns"]]
+				"Fn::Join": [
+					"",
+					[
+						"https://",
+						{
+							"Ref": "AutoScaleAPI"
+						},
+						".execute-api.",
+						{
+							"Ref": "AWS::Region"
+						},
+						".amazonaws.com",
+						"/dev/sns"
+					]
+				]
 			}
 		}
 	}
